@@ -120,7 +120,6 @@ A `Task` is stateless: it holds only immutable per-objective configuration and r
 
 - **`superred`** (this repo) - the framework: interfaces, the controller, the event/trajectory/security-domain types
 - **`superred-modules`** - the optimizers, targets, and security claims you run
-- **`superred-experiments`** - scripts that wire specific combinations together
 
 
 ## Install
