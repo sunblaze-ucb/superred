@@ -1,0 +1,121 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "anonframework"
+dynamic = ["version"]
+description = "A modular framework for comprehensive red-teaming of AI systems"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Anonymous Authors" },
+]
+keywords = [
+    "red-teaming",
+    "ai-safety",
+    "security",
+    "llm",
+    "adversarial",
+    "jailbreak",
+]
+dependencies = [
+    # >=1.89.0: earlier releases crash on models that litellm routes through the
+    # Responses API (e.g. a model routed through AWS Bedrock, mode="responses")
+    # because the chat<->responses bridge is circular. 1.89.0 fixes it, so the
+    # constrained LLMClient can drive those models with no special-casing.
+    "litellm>=1.89.0",
+    # Live progress dashboard (anonframework.core.reporting). Degrades to plain
+    # line output on a non-TTY, but the colored terminal UI is a core feature.
+    "rich>=14,<15",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Security",
+]
+
+[project.optional-dependencies]
+# AWS Bedrock provider support. litellm needs the AWS SDK to sign Bedrock /
+# Bedrock requests; it only ships boto3 in its own `proxy` extra, so we
+# expose it here for experiments whose optimizer model is a Bedrock model.
+bedrock = ["boto3>=1.40"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=6.0",
+    "pytest-xdist>=3.5",
+    "hypothesis>=6.100",
+    "mutmut>=2.5,<3",
+    "mypy>=1.10",
+    "ruff>=0.4",
+]
+
+# `anonframework serve <results-dir>` serves the results website + opens the browser.
+[project.scripts]
+anonframework = "anonframework.cli:main"
+
+# Single source of truth for the version: src/anonframework/__init__.py (__version__).
+# The release workflow checks the git tag matches this value before publishing.
+[tool.hatch.version]
+path = "src/anonframework/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/anonframework"]
+
+# Entry point groups for plugin discovery
+[project.entry-points."anonframework.optimizers"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["UP046", "UP047"]  # Generic[T] syntax requires Python 3.12+; we support 3.11
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "--cov=anonframework.core --cov-branch --cov-report=term-missing --strict-markers"
+markers = [
+    "integration: end-to-end tests across multiple components",
+    "regression: guards against previously fixed bugs",
+]
+
+[tool.coverage.run]
+source = ["anonframework/core"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 95
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.",
+]
+exclude_also = [
+    "def __repr__",
+    "@abstractmethod",
+]
+
+[tool.mutmut]
+paths_to_mutate = "src/anonframework/core/"
+tests_dir = "tests/"
+runner = "python -m pytest tests/ -x -q --no-cov -o addopts=--strict-markers -p no:hypothesis"
+# Requires Python 3.13 (v2 incompatible with 3.14, v3 segfaults on macOS ARM64)
+# Run: mutmut run --no-progress && mutmut results
